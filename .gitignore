@@ -1,0 +1,23 @@
+# Binaries
+lab
+driver
+*.exe
+
+# Go
+vendor/
+
+# Reports (generated at runtime)
+reports/
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env*

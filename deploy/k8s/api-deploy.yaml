@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels:
+    app: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: lab:latest
+          imagePullPolicy: Never
+          args: ["api"]
+          ports:
+            - containerPort: 8080
+          env:
+            - name: API_PORT
+              value: "8080"
+            - name: DEP_URL
+              value: "http://dep:8082"
+            - name: DATABASE_URL
+              value: "postgres://workshop:workshop@postgres:5432/workshop?sslmode=disable"
+          # LAB: STEP4 TODO — Add resource requests and limits here.
+          # Without cpu requests, the HPA cannot compute utilization.
+          # Example fix:
+          #   resources:
+          #     requests:
+          #       cpu: "100m"
+          #       memory: "64Mi"
+          #     limits:
+          #       cpu: "500m"
+          #       memory: "128Mi"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+spec:
+  type: NodePort
+  selector:
+    app: api
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080

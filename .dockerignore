@@ -1,0 +1,13 @@
+.git/
+.github/
+.specify/
+.vscode/
+.idea/
+specs/
+docs/
+reports/
+*.md
+*.log
+.env*
+.gitignore
+.dockerignore
