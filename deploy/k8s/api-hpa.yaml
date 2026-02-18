@@ -13,13 +13,11 @@ spec:
   #   2. Configure CPU target utilization percentage
   #   3. Ensure the api deployment has CPU resource requests set
   minReplicas: 1
-  maxReplicas: 1
+  maxReplicas: 5
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          # LAB: STEP4 TODO - This target is too high to ever trigger scaling.
-          # Change to a reasonable value like 50 to see scaling in action.
-          averageUtilization: 95
+          averageUtilization: 50
