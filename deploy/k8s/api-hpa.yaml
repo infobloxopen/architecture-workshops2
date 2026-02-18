@@ -7,19 +7,14 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: api
-  # LAB: STEP4 TODO - The HPA is misconfigured.
-  # Participants should:
-  #   1. Set appropriate minReplicas and maxReplicas
-  #   2. Configure CPU target utilization percentage
-  #   3. Ensure the api deployment has CPU resource requests set
+  # SOLUTION: Proper HPA configuration with reasonable scaling parameters.
   minReplicas: 1
-  maxReplicas: 1
+  maxReplicas: 5
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          # LAB: STEP4 TODO - This target is too high to ever trigger scaling.
-          # Change to a reasonable value like 50 to see scaling in action.
-          averageUtilization: 95
+          # SOLUTION: 50% utilization triggers scaling before pods saturate.
+          averageUtilization: 50
