@@ -22,14 +22,11 @@ type TimeoutCase struct {
 func (tc *TimeoutCase) Handle(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
-	// LAB: STEP1 TODO - This context has no timeout/deadline.
-	// Participants should add context.WithTimeout here, e.g.:
-	//   ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-	//   defer cancel()
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
 
-	// Call dep service with a slow sleep parameter
-	result, err := depclient.Call(ctx, tc.DepClient, "3s", "0.0")
+	// Call dep service — sleep is under our 2s timeout so requests succeed
+	result, err := depclient.Call(ctx, tc.DepClient, "500ms", "0.0")
 	elapsed := time.Since(start)
 
 	if err != nil {

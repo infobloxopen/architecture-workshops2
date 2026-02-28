@@ -92,18 +92,16 @@ func handleSubmitBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func processBatch(b *Batch) {
-	// LAB: STEP3 TODO - This is a single shared pool with limited concurrency.
-	// Both fast and slow jobs compete for the same workers.
-	// When slow jobs occupy all workers, fast jobs are starved.
-	poolSize := 10
-	sem := make(chan struct{}, poolSize)
+	// Separate pools (bulkheads) so slow jobs can't starve fast jobs
+	fastPool := make(chan struct{}, 20) // large pool for fast jobs
+	slowPool := make(chan struct{}, 5)  // capped pool for slow jobs
 	var wg sync.WaitGroup
 	for i := 0; i < b.Fast; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
+			fastPool <- struct{}{}
+			defer func() { <-fastPool }()
 			start := time.Now()
 			time.Sleep(10 * time.Millisecond)
 			b.recordResult("fast", time.Since(start))
@@ -113,8 +111,8 @@ func processBatch(b *Batch) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
+			slowPool <- struct{}{}
+			defer func() { <-slowPool }()
 			start := time.Now()
 			time.Sleep(1 * time.Second)
 			b.recordResult("slow", time.Since(start))
