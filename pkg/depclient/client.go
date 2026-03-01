@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 // Client calls the dependency simulator service.
@@ -20,9 +21,8 @@ type Client struct {
 func NewClient(baseURL string) *Client {
 	return &Client{
 		BaseURL: baseURL,
-		// LAB: STEP1 TODO - add Timeout and/or a custom Transport with
-		// TLSHandshakeTimeout, ResponseHeaderTimeout, etc.
-		HTTPClient: &http.Client{},
+		// LAB: STEP1 FIXED - added timeout
+		HTTPClient: &http.Client{Timeout: 2 * time.Second},
 	}
 }
 
@@ -32,8 +32,12 @@ func NewClient(baseURL string) *Client {
 //  2. Use http.NewRequestWithContext so the HTTP call respects cancellation
 func Call(ctx context.Context, c *Client, sleep string, failRate string) (string, error) {
 	url := fmt.Sprintf("%s/work?sleep=%s&fail=%s", c.BaseURL, sleep, failRate)
-	// LAB: STEP1 TODO - replace http.Get with http.NewRequestWithContext(ctx, ...)
-	resp, err := c.HTTPClient.Get(url)
+	// LAB: STEP1 FIXED - use context-aware request
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("creating request: %w", err)
+	}
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("dep call failed: %w", err)
 	}
