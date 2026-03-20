@@ -28,16 +28,13 @@ spec:
               value: "http://dep:8082"
             - name: DATABASE_URL
               value: "postgres://workshop:workshop@postgres:5432/workshop?sslmode=disable"
-          # LAB: STEP4 TODO — Add resource requests and limits here.
-          # Without cpu requests, the HPA cannot compute utilization.
-          # Example fix:
-          #   resources:
-          #     requests:
-          #       cpu: "100m"
-          #       memory: "64Mi"
-          #     limits:
-          #       cpu: "500m"
-          #       memory: "128Mi"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "128Mi"
           readinessProbe:
             httpGet:
               path: /healthz
