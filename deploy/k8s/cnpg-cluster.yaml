@@ -30,6 +30,8 @@ spec:
             value TEXT NOT NULL,
             written_at TIMESTAMP DEFAULT NOW()
           );
+          ALTER TABLE pdb_writes OWNER TO workshop;
+          GRANT USAGE, SELECT ON SEQUENCE pdb_writes_id_seq TO workshop;
 
   postgresql:
     pg_hba:

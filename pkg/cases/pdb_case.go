@@ -6,12 +6,28 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 )
 
 // PDBCase handles Case 5: PDB & rolling updates with CloudNativePG.
 type PDBCase struct {
-	DB *sql.DB
+	DB       *sql.DB
+	initOnce sync.Once
+}
+
+// ensureTable creates the pdb_writes table if it doesn't exist.
+func (pc *PDBCase) ensureTable() {
+	pc.initOnce.Do(func() {
+		_, err := pc.DB.Exec(`CREATE TABLE IF NOT EXISTS pdb_writes (
+			id SERIAL PRIMARY KEY,
+			value TEXT NOT NULL,
+			written_at TIMESTAMP DEFAULT NOW()
+		)`)
+		if err != nil {
+			log.Printf("pdb: auto-create table error: %v", err)
+		}
+	})
 }
 
 // Handle serves the /cases/pdb endpoint.
@@ -21,6 +37,8 @@ func (pc *PDBCase) Handle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cnpg database not configured", http.StatusServiceUnavailable)
 		return
 	}
+
+	pc.ensureTable()
 
 	start := time.Now()
 

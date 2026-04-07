@@ -105,33 +105,34 @@ func ListScenarios() []string {
 	return names
 }
 
-// drainCNPGPrimaryNode finds the CNPG primary pod's node and drains it.
+// drainCNPGPrimaryNode finds the CNPG primary pod and deletes it to simulate
+// a node failure. With 1 instance and no replicas, this causes a full outage
+// until the pod restarts. With 3 instances, CNPG promotes a replica in seconds.
 func drainCNPGPrimaryNode(ctx context.Context) error {
-	// Find the primary pod's node.
+	// Find the primary pod name.
 	out, err := exec.CommandContext(ctx, "kubectl", "get", "pods",
 		"-l", "cnpg.io/cluster=workshop-pg,role=primary",
-		"-o", "jsonpath={.items[0].spec.nodeName}",
+		"-o", "jsonpath={.items[0].metadata.name}",
 	).Output()
 	if err != nil {
-		return fmt.Errorf("find primary node: %w", err)
+		return fmt.Errorf("find primary pod: %w", err)
 	}
-	node := strings.TrimSpace(string(out))
-	if node == "" {
-		return fmt.Errorf("no primary node found")
+	pod := strings.TrimSpace(string(out))
+	if pod == "" {
+		return fmt.Errorf("no primary pod found")
 	}
 
-	log.Printf("fault: draining node %s (CNPG primary)", node)
+	log.Printf("fault: deleting primary pod %s", pod)
 	var stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, "kubectl", "drain", node,
-		"--ignore-daemonsets", "--delete-emptydir-data", "--force",
-		"--grace-period=5", "--timeout=30s",
+	cmd := exec.CommandContext(ctx, "kubectl", "delete", "pod", pod,
+		"--grace-period=0", "--force",
 	)
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("drain node %s: %w: %s", node, err, stderr.String())
+		return fmt.Errorf("delete pod %s: %w: %s", pod, err, stderr.String())
 	}
 
-	log.Printf("fault: node %s drained", node)
+	log.Printf("fault: pod %s deleted", pod)
 	return nil
 }
 
