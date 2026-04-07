@@ -3,7 +3,7 @@ kind: Simple
 metadata:
   name: workshop
 servers: 1
-agents: 0
+agents: 2
 ports:
   - port: 8080:30080
     nodeFilters:

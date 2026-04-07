@@ -17,6 +17,7 @@ import (
 type Server struct {
 	DepClient *depclient.Client
 	DB        *sql.DB
+	CNPGDB    *sql.DB
 	Mux       *http.ServeMux
 }
 
@@ -37,6 +38,17 @@ func Run() {
 			db.SetMaxOpenConns(10)
 			db.SetMaxIdleConns(5)
 			srv.DB = db
+		}
+	}
+	// Try to connect to CNPG cluster if DSN is provided
+	if dsn := os.Getenv("CNPG_DATABASE_URL"); dsn != "" {
+		db, err := sql.Open("postgres", dsn)
+		if err != nil {
+			log.Printf("api: warning: could not open CNPG DB: %v", err)
+		} else {
+			db.SetMaxOpenConns(10)
+			db.SetMaxIdleConns(5)
+			srv.CNPGDB = db
 		}
 	}
 	srv.Mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -77,6 +89,8 @@ func (s *Server) RegisterCases() {
 	s.Mux.HandleFunc("/cases/tx", txc.Handle)
 	ac := &cases.AutoscaleCase{}
 	s.Mux.HandleFunc("/cases/autoscale", ac.Handle)
+	pdbc := &cases.PDBCase{DB: s.CNPGDB}
+	s.Mux.HandleFunc("/cases/pdb", pdbc.Handle)
 }
 
 func envOr(key, fallback string) string {

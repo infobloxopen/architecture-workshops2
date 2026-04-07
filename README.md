@@ -41,6 +41,7 @@ one container image, fast iteration.
 | 2 | DB Transaction Scope | `pkg/cases/tx_case.go` |
 | 3 | Bulkheads | `pkg/worker/dispatcher.go` |
 | 4 | Autoscaling (HPA) | `deploy/k8s/api-deploy.yaml` + `api-hpa.yaml` |
+| 5 | PDB & CNPG Failover | `deploy/k8s/cnpg-cluster.yaml` |
 
 ## Prerequisites
 

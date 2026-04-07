@@ -200,6 +200,58 @@ kubectl get hpa -w    # Watch replicas increase
 
 ---
 
+## Case 5: PDB & CNPG Failover (LAB: STEP5)
+
+**Problem**: A CloudNativePG PostgreSQL cluster runs with a single instance. When the node is drained (maintenance, spot eviction), the only instance is evicted and writes fail for 30+ seconds while it restarts.
+
+### Observe the Problem
+
+```bash
+go run ./cmd/driver run pdb
+```
+
+The driver sends steady writes for 60s and drains the primary's node at t=15s. With a single instance and no PDB, the report shows a long error window and high error rate.
+
+### Find the Code
+
+Look for `LAB: STEP5 TODO` markers in:
+- `deploy/k8s/cnpg-cluster.yaml` — Single instance, no anti-affinity, supervised updates
+
+### Fix It
+
+1. **Scale to 3 instances** in `deploy/k8s/cnpg-cluster.yaml`:
+   ```yaml
+   instances: 3
+   ```
+
+2. **Enable unsupervised failover**:
+   ```yaml
+   primaryUpdateStrategy: unsupervised
+   ```
+
+3. **Enable pod anti-affinity** so instances spread across nodes:
+   ```yaml
+   affinity:
+     enablePodAntiAffinity: true
+     topologyKey: kubernetes.io/hostname
+   ```
+
+4. **Apply changes**:
+   ```bash
+   kubectl apply -f deploy/k8s/cnpg-cluster.yaml
+   kubectl wait --for=condition=Ready cluster/workshop-pg --timeout=180s
+   ```
+
+### Verify
+
+```bash
+go run ./cmd/driver run pdb
+```
+
+With 3 instances + anti-affinity, draining the primary's node triggers automatic failover to a replica on another node. The report should show errors for only a few seconds (sub-5s recovery) and a much lower error rate.
+
+---
+
 ## Cleanup
 
 ```bash
