@@ -3,7 +3,6 @@ package driver
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"log"
 	"os/exec"
 	"strings"
@@ -105,34 +104,55 @@ func ListScenarios() []string {
 	return names
 }
 
-// drainCNPGPrimaryNode finds the CNPG primary pod and deletes it to simulate
-// a node failure. With 1 instance and no replicas, this causes a full outage
-// until the pod restarts. With 3 instances, CNPG promotes a replica in seconds.
+// drainCNPGPrimaryNode repeatedly kills the CNPG primary pod to simulate
+// sustained node failures. With 1 instance and no replicas, each kill causes
+// a full outage until the pod restarts. With 3 instances, CNPG promotes a
+// replica in seconds and the impact is minimal.
 func drainCNPGPrimaryNode(ctx context.Context) error {
-	// Find the primary pod name.
-	out, err := exec.CommandContext(ctx, "kubectl", "get", "pods",
-		"-l", "cnpg.io/cluster=workshop-pg,role=primary",
-		"-o", "jsonpath={.items[0].metadata.name}",
-	).Output()
-	if err != nil {
-		return fmt.Errorf("find primary pod: %w", err)
-	}
-	pod := strings.TrimSpace(string(out))
-	if pod == "" {
-		return fmt.Errorf("no primary pod found")
-	}
+	for i := 0; i < 3; i++ {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 
-	log.Printf("fault: deleting primary pod %s", pod)
-	var stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, "kubectl", "delete", "pod", pod,
-		"--grace-period=0", "--force",
-	)
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("delete pod %s: %w: %s", pod, err, stderr.String())
-	}
+		// Find the current primary pod name (may change after restart).
+		out, err := exec.CommandContext(ctx, "kubectl", "get", "pods",
+			"-l", "cnpg.io/cluster=workshop-pg,role=primary",
+			"-o", "jsonpath={.items[0].metadata.name}",
+		).Output()
+		if err != nil {
+			log.Printf("fault: attempt %d: find primary: %v", i+1, err)
+			continue
+		}
+		pod := strings.TrimSpace(string(out))
+		if pod == "" {
+			log.Printf("fault: attempt %d: no primary pod found, waiting...", i+1)
+			select {
+			case <-time.After(5 * time.Second):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			continue
+		}
 
-	log.Printf("fault: pod %s deleted", pod)
+		log.Printf("fault: attempt %d: deleting primary pod %s", i+1, pod)
+		var stderr bytes.Buffer
+		cmd := exec.CommandContext(ctx, "kubectl", "delete", "pod", pod,
+			"--grace-period=5",
+		)
+		cmd.Stderr = &stderr
+		if err := cmd.Run(); err != nil {
+			log.Printf("fault: attempt %d: delete error: %v: %s", i+1, err, stderr.String())
+		} else {
+			log.Printf("fault: attempt %d: pod %s deleted", i+1, pod)
+		}
+
+		// Wait for the pod to restart before killing again.
+		select {
+		case <-time.After(10 * time.Second):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 	return nil
 }
 
