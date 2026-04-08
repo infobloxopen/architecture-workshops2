@@ -7,12 +7,12 @@ spec:
   # When this pod is evicted (drain, node failure), there is no replica
   # to promote and writes are unavailable until the instance restarts.
   # Fix: increase to 3 instances.
-  instances: 1
+  instances: 3
 
   # LAB: STEP5 TODO — Without unsupervised strategy, the operator waits
   # for manual intervention during primary rolling updates.
   # Fix: uncomment the line below.
-  # primaryUpdateStrategy: unsupervised
+  primaryUpdateStrategy: unsupervised
 
   storage:
     size: 1Gi
@@ -40,6 +40,6 @@ spec:
   # LAB: STEP5 TODO — Without anti-affinity, all pods may land on the
   # same node. A single node drain then kills the entire cluster.
   # Fix: uncomment the affinity block below.
-  # affinity:
-  #   enablePodAntiAffinity: true
-  #   topologyKey: kubernetes.io/hostname
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
