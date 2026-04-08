@@ -2,7 +2,7 @@
 
 ## Scoring
 
-Each case is scored 0–100 by the driver's built-in scorer. The total score is the sum of all five cases (max **500**).
+Each case is scored 0–100 by the driver's built-in scorer. The total score is the sum of all six cases (max **600**).
 
 | Metric           | Weight | Deduction                              |
 |------------------|--------|----------------------------------------|
@@ -20,6 +20,7 @@ Each case is scored 0–100 by the driver's built-in scorer. The total score is 
 | 3 — Bulkheads  | `bulkheads` | 100 ms (fast) | 10s |
 | 4 — Autoscale  | `autoscale` | 500 ms  | 60s |
 | 5 — PDB & CNPG | `pdb`       | 2000 ms | 60s |
+| 6 — Circuit Breaker | `circuitbreaker` | 2000 ms | 60s |
 
 ## How to Run
 
@@ -33,20 +34,21 @@ go run ./cmd/driver run tx
 go run ./cmd/driver run bulkheads
 go run ./cmd/driver run autoscale
 go run ./cmd/driver run pdb
+go run ./cmd/driver run circuitbreaker
 ```
 
 Reports are saved to `reports/<scenario>/<timestamp>/`.
 
 ## Results
 
-| Team       | Timeouts | DB TX | Bulkheads | Autoscale | PDB & CNPG | Total | Time |
-|------------|----------|-------|-----------|-----------|------------|-------|------|
-| _Example_  | 85       | 90    | 95        | 80        | 100        | 450   | 55m  |
-|            |          |       |           |           |       |      |
-|            |          |       |           |           |       |      |
-|            |          |       |           |           |       |      |
-|            |          |       |           |           |       |      |
-|            |          |       |           |           |       |      |
+| Team       | Timeouts | DB TX | Bulkheads | Autoscale | PDB & CNPG | Circuit Breaker | Total | Time |
+|------------|----------|-------|-----------|-----------|------------|-----------------|-------|------|
+| _Example_  | 85       | 90    | 95        | 80        | 100        | 77              | 527   | 65m  |
+|            |          |       |           |           |            |                 |       |      |
+|            |          |       |           |           |            |                 |       |      |
+|            |          |       |           |           |            |                 |       |      |
+|            |          |       |           |           |            |                 |       |      |
+|            |          |       |           |           |            |                 |       |      |
 
 ## Notes
 

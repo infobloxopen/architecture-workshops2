@@ -1,6 +1,6 @@
 # Architecture Workshops — Resilience Patterns
 
-A 60-minute hands-on workshop teaching four resilience patterns through
+A 60-minute hands-on workshop teaching six resilience patterns through
 a **run → observe failure → fix → rerun → compare** loop.
 
 All services run locally in **k3d** (k3s-in-Docker). One Go binary,
@@ -42,6 +42,7 @@ one container image, fast iteration.
 | 3 | Bulkheads | `pkg/worker/dispatcher.go` |
 | 4 | Autoscaling (HPA) | `deploy/k8s/api-deploy.yaml` + `api-hpa.yaml` |
 | 5 | PDB & CNPG Failover | `deploy/k8s/cnpg-cluster.yaml` |
+| 6 | Circuit Breaker | `pkg/cases/circuitbreaker_case.go` |
 
 ## Prerequisites
 
@@ -70,6 +71,8 @@ go run ./cmd/driver run timeouts
 go run ./cmd/driver run tx
 go run ./cmd/driver run bulkheads
 go run ./cmd/driver run autoscale
+go run ./cmd/driver run pdb
+go run ./cmd/driver run circuitbreaker
 
 # After fixing code, rebuild + redeploy
 make dev
@@ -109,6 +112,9 @@ pkg/
     timeout_case.go     # Case 1: Timeouts (LAB: STEP1)
     tx_case.go          # Case 2: DB TX scope (LAB: STEP2)
     autoscale_case.go   # Case 4: CPU-intensive work
+    pdb_case.go          # Case 5: CNPG failover (LAB: STEP5)
+    breaker.go           # Circuit breaker state machine
+    circuitbreaker_case.go # Case 6: Circuit breaker (LAB: STEP6)
   dep/server.go         # Dependency simulator
   depclient/client.go   # HTTP client (LAB: STEP1)
   worker/dispatcher.go  # Worker with batch processing (LAB: STEP3)

@@ -91,6 +91,8 @@ func (s *Server) RegisterCases() {
 	s.Mux.HandleFunc("/cases/autoscale", ac.Handle)
 	pdbc := &cases.PDBCase{DB: s.CNPGDB}
 	s.Mux.HandleFunc("/cases/pdb", pdbc.Handle)
+	cbc := cases.NewCircuitBreakerCase(s.CNPGDB)
+	s.Mux.HandleFunc("/cases/circuitbreaker", cbc.Handle)
 }
 
 func envOr(key, fallback string) string {
