@@ -28,6 +28,11 @@ spec:
               value: "http://dep:8082"
             - name: DATABASE_URL
               value: "postgres://workshop:workshop@postgres:5432/workshop?sslmode=disable"
+            - name: CNPG_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: workshop-pg-app
+                  key: uri
           # LAB: STEP4 TODO — Add resource requests and limits here.
           # Without cpu requests, the HPA cannot compute utilization.
           # Example fix:

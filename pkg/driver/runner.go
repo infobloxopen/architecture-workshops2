@@ -3,6 +3,7 @@ package driver
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"net/http"
@@ -29,6 +30,11 @@ type RunConfig struct {
 	RPS         int
 	Duration    time.Duration
 	Concurrency int
+	// FaultFunc is called after FaultDelay to inject a failure mid-run.
+	FaultFunc  func(ctx context.Context) error
+	FaultDelay time.Duration
+	// CleanupFunc runs after the test to restore cluster state.
+	CleanupFunc func()
 }
 
 // RequestResult records the outcome of a single request.
@@ -106,6 +112,24 @@ func (r *Runner) Run(ctx context.Context) *report.RunData {
 			}
 		}
 	}()
+
+	// Fire fault injection mid-run if configured.
+	if r.Config.FaultFunc != nil {
+		delay := r.Config.FaultDelay
+		if delay <= 0 {
+			delay = r.Config.Duration / 3
+		}
+		go func() {
+			select {
+			case <-time.After(delay):
+				log.Printf("driver: injecting fault after %s", delay)
+				if err := r.Config.FaultFunc(ctx); err != nil {
+					log.Printf("driver: fault injection error: %v", err)
+				}
+			case <-ctx.Done():
+			}
+		}()
+	}
 
 loop:
 	for {

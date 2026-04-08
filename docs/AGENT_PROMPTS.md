@@ -92,20 +92,53 @@ Then verify: kubectl get hpa -w (should see replicas increase under load)
 
 ---
 
+## Case 5: PDB & CNPG Failover
+
+```
+I'm working on a Kubernetes workshop using CloudNativePG (CNPG) for PostgreSQL.
+The current setup has a single CNPG instance with no anti-affinity and no
+automatic failover strategy. When the primary pod is killed (simulating a node
+failure), writes are unavailable for 15+ seconds while the pod restarts.
+
+Look at this file for LAB: STEP5 TODO markers:
+- deploy/k8s/cnpg-cluster.yaml
+
+The problems are:
+1. instances: 1 — no replicas to fail over to
+2. primaryUpdateStrategy is not set (defaults to supervised = manual intervention)
+3. No anti-affinity — all pods could land on the same node
+
+Help me fix the CNPG cluster configuration:
+1. Set instances to 3 (1 primary + 2 replicas)
+2. Add primaryUpdateStrategy: unsupervised for automatic failover
+3. Add affinity with enablePodAntiAffinity: true and
+   topologyKey: kubernetes.io/hostname to spread pods across nodes
+
+After changes:
+  kubectl apply -f deploy/k8s/cnpg-cluster.yaml
+  kubectl wait --for=condition=Ready cluster/workshop-pg --timeout=180s
+  kubectl get pods -l cnpg.io/cluster=workshop-pg -o wide
+
+Verify pods are on different nodes, then re-run: go run ./cmd/driver run pdb
+The goal is score 90+ with <5% error rate during fault injection.
+```
+
+---
+
 ## General Exploration
 
 ```
-I'm exploring a Go microservice workshop that teaches 4 resilience patterns:
-timeouts, DB transaction scope, bulkheads, and autoscaling.
+I'm exploring a Go microservice workshop that teaches 5 resilience patterns:
+timeouts, DB transaction scope, bulkheads, autoscaling, and PDB/CNPG failover.
 
 The project structure:
 - cmd/lab/main.go — Single binary (api|worker|dep modes)
 - cmd/driver/main.go — Load test driver with HTML reports
 - pkg/cases/ — Lab case implementations with LAB TODO markers
-- deploy/k8s/ — Kubernetes manifests
+- deploy/k8s/ — Kubernetes manifests (includes CNPG cluster)
 
 Key commands:
-- make up (create cluster) / make down (destroy)
+- make up (create cluster + install CNPG operator) / make down (destroy)
 - make dev (rebuild + redeploy < 30s)
 - go run ./cmd/driver run <scenario> (run load test)
 - go run ./cmd/driver list (list scenarios)

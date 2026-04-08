@@ -1,4 +1,4 @@
-# Facilitator Guide — 60-Minute Resilience Patterns Workshop
+# Facilitator Guide — 75-Minute Resilience Patterns Workshop
 
 ## Pre-Workshop Checklist
 
@@ -17,8 +17,9 @@
 | 0:20 | 10 min | Case 2: DB Transaction Scope |
 | 0:30 | 10 min | Case 3: Bulkheads |
 | 0:40 | 10 min | Case 4: Autoscaling |
-| 0:50 | 5 min | Leaderboard + Score Review |
-| 0:55 | 5 min | Wrap-up + Q&A |
+| 0:50 | 10 min | Case 5: PDB & CNPG Failover |
+| 1:00 | 5 min | Leaderboard + Score Review |
+| 1:05 | 5 min | Wrap-up + Q&A |
 
 ---
 
@@ -191,9 +192,73 @@ make smoke    # Verifies all services respond
 
 ---
 
+## 0:50–1:00 Case 5: PDB & CNPG Failover (10 min)
+
+### Pre-requisites
+
+The cluster was created with 3 nodes (`agents: 2` in k3d config). The CNPG operator is installed during `make up`. The default `cnpg-cluster.yaml` deploys a single-instance PostgreSQL cluster.
+
+### Flow
+
+1. **Run the baseline** (2 min):
+   ```bash
+   go run ./cmd/driver run pdb
+   ```
+   "The driver sends writes for 60 seconds. At t=15s it kills the primary pod — three times, 10 seconds apart. With only 1 instance, every kill means a full outage until the pod restarts."
+
+   Show them the score (~57/100) and the error rate (~15%).
+
+2. **Check the cluster state** (1 min):
+   ```bash
+   kubectl get pods -l cnpg.io/cluster=workshop-pg -o wide
+   kubectl get pdb
+   kubectl get nodes
+   ```
+   "Notice: 1 pod, 1 node. No replicas to fail over to. The PDB exists but can't help — there's nothing to protect."
+
+3. **Find the TODOs** (2 min):
+   "Search for `LAB: STEP5 TODO` in `deploy/k8s/cnpg-cluster.yaml`. Three things to fix: instance count, update strategy, and anti-affinity."
+
+4. **Fix and verify** (4 min):
+   ```yaml
+   instances: 3
+   primaryUpdateStrategy: unsupervised
+   affinity:
+     enablePodAntiAffinity: true
+     topologyKey: kubernetes.io/hostname
+   ```
+   ```bash
+   kubectl apply -f deploy/k8s/cnpg-cluster.yaml
+   kubectl wait --for=condition=Ready cluster/workshop-pg --timeout=180s
+   kubectl get pods -l cnpg.io/cluster=workshop-pg -o wide
+   ```
+   "Now we have 3 pods across 3 nodes. Re-run the scenario:"
+   ```bash
+   kubectl rollout restart deployment/api
+   go run ./cmd/driver run pdb
+   ```
+   Score should jump to ~100/100 with <5% error rate.
+
+5. **Discuss** (1 min):
+   - "Watch the logs — the primary role moves between pods during each kill"
+   - "In production this is the difference between 'incident' and 'non-event'"
+   - "The same pattern applies to any stateful workload: etcd, Redis Sentinel, Kafka"
+
+### Key Insight
+
+> "A single database instance is not high availability — it's a single point of failure with extra steps. Three instances with anti-affinity and automatic failover turn a node failure into a sub-second blip."
+
+### Troubleshooting
+
+- **CNPG pods stuck in Pending**: Check node count — need 3 nodes for anti-affinity with 3 instances
+- **CrashLoopBackOff after test**: WAL corruption from force-kill. Run `kubectl delete cluster workshop-pg && kubectl delete pvc -l cnpg.io/cluster=workshop-pg` then `kubectl apply -f deploy/k8s/cnpg-cluster.yaml`
+- **API returns 503 on /cases/pdb**: Restart the API deployment so it reconnects: `kubectl rollout restart deployment/api`
+
+---
+
 ## 0:50–0:55 Leaderboard (5 min)
 
-Have participants share their scores (printed by the driver). Best combined score across all 4 cases wins.
+Have participants share their scores (printed by the driver). Best combined score across all 5 cases wins.
 
 ---
 
@@ -207,6 +272,7 @@ Have participants share their scores (printed by the driver). Best combined scor
 | TX Scope | Pool exhaustion | Minimize TX duration |
 | Bulkheads | Resource starvation | Isolate workloads |
 | Autoscaling | No scale response | Configure HPA + requests |
+| PDB & CNPG | Single point of failure | 3 instances + anti-affinity + auto-failover |
 
 ### Resources
 

@@ -8,8 +8,10 @@ echo "==> Pre-pulling images for offline workshop use..."
 K3S_IMAGE="docker.io/rancher/k3s:v1.31.4-k3s1"
 POSTGRES_IMAGE="docker.io/library/postgres:16-alpine"
 METRICS_IMAGE="registry.k8s.io/metrics-server/metrics-server:v0.7.2"
+CNPG_IMAGE="ghcr.io/cloudnative-pg/cloudnative-pg:1.25.1"
+CNPG_PG_IMAGE="ghcr.io/cloudnative-pg/postgresql:16-alpine"
 
-images=("$K3S_IMAGE" "$POSTGRES_IMAGE" "$METRICS_IMAGE")
+images=("$K3S_IMAGE" "$POSTGRES_IMAGE" "$METRICS_IMAGE" "$CNPG_IMAGE" "$CNPG_PG_IMAGE")
 
 for img in "${images[@]}"; do
   echo "  Pulling $img ..."

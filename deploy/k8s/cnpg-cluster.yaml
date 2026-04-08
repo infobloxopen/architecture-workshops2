@@ -1,0 +1,45 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: workshop-pg
+spec:
+  # LAB: STEP5 TODO — A single instance means zero failover capacity.
+  # When this pod is evicted (drain, node failure), there is no replica
+  # to promote and writes are unavailable until the instance restarts.
+  # Fix: increase to 3 instances.
+  instances: 1
+
+  # LAB: STEP5 TODO — Without unsupervised strategy, the operator waits
+  # for manual intervention during primary rolling updates.
+  # Fix: uncomment the line below.
+  # primaryUpdateStrategy: unsupervised
+
+  storage:
+    size: 1Gi
+
+  enableSuperuserAccess: true
+
+  bootstrap:
+    initdb:
+      database: workshop
+      owner: workshop
+      postInitSQL:
+        - |
+          CREATE TABLE IF NOT EXISTS pdb_writes (
+            id SERIAL PRIMARY KEY,
+            value TEXT NOT NULL,
+            written_at TIMESTAMP DEFAULT NOW()
+          );
+          ALTER TABLE pdb_writes OWNER TO workshop;
+          GRANT USAGE, SELECT ON SEQUENCE pdb_writes_id_seq TO workshop;
+
+  postgresql:
+    pg_hba:
+      - host all all 0.0.0.0/0 md5
+
+  # LAB: STEP5 TODO — Without anti-affinity, all pods may land on the
+  # same node. A single node drain then kills the entire cluster.
+  # Fix: uncomment the affinity block below.
+  # affinity:
+  #   enablePodAntiAffinity: true
+  #   topologyKey: kubernetes.io/hostname

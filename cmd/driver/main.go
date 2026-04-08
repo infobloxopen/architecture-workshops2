@@ -62,10 +62,17 @@ func runScenario(name string) {
 		RPS:         scenario.RPS,
 		Duration:    scenario.Duration,
 		Concurrency: scenario.Concurrency,
+		FaultFunc:   scenario.FaultFunc,
+		FaultDelay:  scenario.FaultDelay,
 	})
 	ctx := context.Background()
 	data := runner.Run(ctx)
 	data.Scenario = scenario.Name
+
+	// Cleanup after fault injection (e.g. uncordon drained nodes).
+	if scenario.FaultFunc != nil {
+		driver.UncordonAllNodes()
+	}
 
 	score, scoreLine := driver.Score(data, scenario)
 	data.Score = score
