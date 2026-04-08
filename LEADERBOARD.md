@@ -2,7 +2,7 @@
 
 ## Scoring
 
-Each case is scored 0–100 by the driver's built-in scorer. The total score is the sum of all four cases (max **400**).
+Each case is scored 0–100 by the driver's built-in scorer. The total score is the sum of all five cases (max **500**).
 
 | Metric           | Weight | Deduction                              |
 |------------------|--------|----------------------------------------|
@@ -19,6 +19,7 @@ Each case is scored 0–100 by the driver's built-in scorer. The total score is 
 | 2 — DB TX      | `tx`        | 2500 ms | 30s |
 | 3 — Bulkheads  | `bulkheads` | 100 ms (fast) | 10s |
 | 4 — Autoscale  | `autoscale` | 500 ms  | 60s |
+| 5 — PDB & CNPG | `pdb`       | 2000 ms | 60s |
 
 ## How to Run
 
@@ -31,15 +32,16 @@ go run ./cmd/driver run timeouts
 go run ./cmd/driver run tx
 go run ./cmd/driver run bulkheads
 go run ./cmd/driver run autoscale
+go run ./cmd/driver run pdb
 ```
 
 Reports are saved to `reports/<scenario>/<timestamp>/`.
 
 ## Results
 
-| Team       | Timeouts | DB TX | Bulkheads | Autoscale | Total | Time |
-|------------|----------|-------|-----------|-----------|-------|------|
-| _Example_  | 85       | 90    | 95        | 80        | 350   | 45m  |
+| Team       | Timeouts | DB TX | Bulkheads | Autoscale | PDB & CNPG | Total | Time |
+|------------|----------|-------|-----------|-----------|------------|-------|------|
+| _Example_  | 85       | 90    | 95        | 80        | 100        | 450   | 55m  |
 |            |          |       |           |           |       |      |
 |            |          |       |           |           |       |      |
 |            |          |       |           |           |       |      |

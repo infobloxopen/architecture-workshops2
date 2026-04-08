@@ -267,3 +267,6 @@ make down    # Delete cluster
 | Stale image | `make dev` to rebuild and reload |
 | DB connection errors | `make reset` to restart services |
 | Port conflict on 8080 | `lsof -i :8080` and kill conflicting process |
+| CNPG pod CrashLoopBackOff | WAL corrupted — `kubectl delete cluster workshop-pg && kubectl delete pvc -l cnpg.io/cluster=workshop-pg` then `kubectl apply -f deploy/k8s/cnpg-cluster.yaml` |
+| CNPG pods stuck Pending | Need 3 nodes for anti-affinity — verify `kubectl get nodes` shows 3 nodes |
+| API returns 503 on /cases/pdb | Stale DB connection — `kubectl rollout restart deployment/api` |
