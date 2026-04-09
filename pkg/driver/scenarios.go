@@ -93,6 +93,19 @@ var Registry = map[string]*Scenario{
 		FaultDelay:  15 * time.Second,
 		FaultFunc:   drainCNPGPrimaryNode,
 	},
+	"circuitbreaker": {
+		Name:        "circuitbreaker",
+		Description: "Case 6: Circuit breaker — fail fast when DB is down",
+		TargetURL:   "http://localhost:8080/cases/circuitbreaker",
+		Method:      "GET",
+		RPS:         10,
+		Duration:    60 * time.Second,
+		Concurrency: 10,
+		MaxP95Ms:    2000,
+		MaxErrRate:  0.65,
+		FaultDelay:  15 * time.Second,
+		FaultFunc:   drainCNPGPrimaryNode,
+	},
 }
 
 // ListScenarios returns all scenario names.

@@ -1,4 +1,4 @@
-# Facilitator Guide — 75-Minute Resilience Patterns Workshop
+# Facilitator Guide — 85-Minute Resilience Patterns Workshop
 
 ## Pre-Workshop Checklist
 
@@ -18,8 +18,9 @@
 | 0:30 | 10 min | Case 3: Bulkheads |
 | 0:40 | 10 min | Case 4: Autoscaling |
 | 0:50 | 10 min | Case 5: PDB & CNPG Failover |
-| 1:00 | 5 min | Leaderboard + Score Review |
-| 1:05 | 5 min | Wrap-up + Q&A |
+| 1:00 | 10 min | Case 6: Circuit Breaker |
+| 1:10 | 5 min | Leaderboard + Score Review |
+| 1:15 | 5 min | Wrap-up + Q&A |
 
 ---
 
@@ -27,10 +28,10 @@
 
 ### Talking Points
 
-- "Today we'll learn 4 resilience patterns by breaking and fixing real services"
+- "Today we'll learn 6 resilience patterns by breaking and fixing real services"
 - "Everything runs locally in k3d — no cloud accounts needed"
 - "Each case follows: observe failure → find the code → fix → verify improvement"
-- Draw the architecture: API → Dep (dependency simulator), Worker (batch processing), PostgreSQL
+- Draw the architecture: API → Dep (dependency simulator), Worker (batch processing), PostgreSQL (standalone + CNPG)
 
 ### Architecture Diagram
 
@@ -256,13 +257,74 @@ The cluster was created with 3 nodes (`agents: 2` in k3d config). The CNPG opera
 
 ---
 
-## 0:50–0:55 Leaderboard (5 min)
+## 1:00–1:10 Case 6: Circuit Breaker (10 min)
 
-Have participants share their scores (printed by the driver). Best combined score across all 5 cases wins.
+### Pre-requisites
+
+Case 6 reuses the CNPG cluster. Revert Case 5 fixes first so the breaker's value is clearly visible:
+
+```bash
+# In deploy/k8s/cnpg-cluster.yaml, set instances: 1 and remove affinity/primaryUpdateStrategy
+kubectl apply -f deploy/k8s/cnpg-cluster.yaml
+kubectl wait --for=condition=Ready cluster/workshop-pg --timeout=120s
+kubectl rollout restart deployment/api
+```
+
+> With 3 instances, CNPG failover is so fast the breaker barely activates. A single instance makes the outage window long enough to see the breaker in action.
+
+### Flow
+
+1. **Run the baseline** (2 min):
+   ```bash
+   go run ./cmd/driver run circuitbreaker
+   ```
+   "The driver sends writes for 60s. At t=15s it kills the primary pod — same fault as Case 5. Without a circuit breaker, every request during the outage blocks on a 30-second DB connection timeout. Look at the p95 — it's 3+ seconds."
+
+   Show them the score (~63/100) and the p95 (~3374ms).
+
+2. **Explain the difference from Case 5** (1 min):
+   "Case 5 solved availability with replicas. Case 6 asks: what if the DB IS down? How does your app behave? Right now it wastes resources on doomed requests."
+
+3. **Find the TODOs** (2 min):
+   "Search for `LAB: STEP6 TODO` in `pkg/cases/circuitbreaker_case.go`. The breaker is created with `Threshold: 0` which disables it. Also look at `pkg/cases/breaker.go` to understand the state machine."
+
+4. **Fix and verify** (4 min):
+   ```go
+   breaker: Breaker{
+       Threshold: 5,
+       Timeout:   5 * time.Second,
+   },
+   ```
+   ```bash
+   make dev
+   go run ./cmd/driver run circuitbreaker
+   ```
+   "Now p95 drops from 3374ms to ~8ms. The error rate goes UP (breaker rejects fast) but throughput is maintained. Score jumps to ~77/100."
+
+5. **Discuss** (1 min):
+   - "The breaker trades accuracy for responsiveness — better to fail fast than block"
+   - "In production, combine with retries and fallbacks for even better results"
+   - "The half-open state automatically probes for recovery — no manual intervention needed"
+
+### Key Insight
+
+> "A circuit breaker protects your service from a failing dependency. Instead of blocking on timeouts, it fails immediately — preserving throughput and keeping latency low. The error rate goes up, but from the user's perspective, a fast error is better than a 30-second hang."
+
+### Troubleshooting
+
+- **Score seems low despite breaker working**: The scoring penalizes error rate. A breaker correctly rejecting requests still counts as errors — this is expected. The p95 improvement is the key metric.
+- **CNPG cluster issues**: Same as Case 5 troubleshooting above.
+- **Breaker never opens**: Check `Threshold` is > 0 after the fix.
 
 ---
 
-## 0:55–1:00 Wrap-up (5 min)
+## 1:10–1:15 Leaderboard (5 min)
+
+Have participants share their scores (printed by the driver). Best combined score across all 6 cases wins.
+
+---
+
+## 1:15–1:20 Wrap-up (5 min)
 
 ### Summary
 
@@ -273,6 +335,7 @@ Have participants share their scores (printed by the driver). Best combined scor
 | Bulkheads | Resource starvation | Isolate workloads |
 | Autoscaling | No scale response | Configure HPA + requests |
 | PDB & CNPG | Single point of failure | 3 instances + anti-affinity + auto-failover |
+| Circuit Breaker | Blocking on failed deps | Fail fast, preserve throughput |
 
 ### Resources
 

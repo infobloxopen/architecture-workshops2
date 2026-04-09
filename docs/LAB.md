@@ -252,6 +252,75 @@ With 3 instances + anti-affinity, draining the primary's node triggers automatic
 
 ---
 
+## Case 6: Circuit Breaker (LAB: STEP6)
+
+**Problem**: When the CNPG primary is killed, the application has no circuit breaker. Every request attempts a DB call that blocks on a 30-second connection timeout, causing p95 latency to spike to 3+ seconds and wasting all concurrency slots on doomed requests.
+
+### Before You Start — Revert Case 5 Fixes
+
+Case 6 demonstrates application-level resilience **without** infrastructure HA. Revert `cnpg-cluster.yaml` to a single instance so the breaker's value is clearly visible:
+
+```yaml
+instances: 1
+# Remove or comment out primaryUpdateStrategy and affinity sections
+```
+
+```bash
+kubectl apply -f deploy/k8s/cnpg-cluster.yaml
+kubectl wait --for=condition=Ready cluster/workshop-pg --timeout=120s
+kubectl rollout restart deployment/api
+```
+
+> **Why?** With 3 instances, CNPG failover is so fast the breaker barely activates. A single instance makes the outage window long enough to see the breaker in action.
+
+### Observe the Problem
+
+```bash
+go run ./cmd/driver run circuitbreaker
+```
+
+The driver sends writes for 60s and kills the primary at t=15s (same fault as Case 5). Notice the p95 is ~3374ms — requests are blocking on connection timeouts instead of failing fast.
+
+### Find the Code
+
+Look for `LAB: STEP6 TODO` markers in:
+- `pkg/cases/circuitbreaker_case.go` — Breaker created with `Threshold: 0` (disabled)
+- `pkg/cases/breaker.go` — Circuit breaker state machine (Closed → Open → HalfOpen)
+
+### Understand the Breaker
+
+The circuit breaker has three states:
+- **Closed** (normal): All requests pass through to the DB
+- **Open** (failing fast): After N consecutive failures, requests are rejected immediately (<1ms)
+- **HalfOpen** (probing): After a timeout, one request is allowed through to test recovery
+
+### Fix It
+
+1. **Enable the circuit breaker** in `pkg/cases/circuitbreaker_case.go`:
+   ```go
+   breaker: Breaker{
+       Threshold: 5,              // Open after 5 consecutive failures
+       Timeout:   5 * time.Second, // Probe for recovery after 5s
+   },
+   ```
+
+### Verify
+
+```bash
+make dev
+go run ./cmd/driver run circuitbreaker
+```
+
+The report should show:
+- p95 drops from ~3374ms to ~8ms (fast rejection instead of blocking)
+- Error rate goes UP (this is correct — the breaker rejects requests fast instead of letting them hang)
+- Throughput is maintained at full capacity (600 requests vs 312 without breaker)
+- Score improves to ~77/100
+
+> **Note**: The scoring penalizes error rate, so the score won't be 100. The key insight is that the breaker *preserves throughput and latency* at the cost of accuracy — a fast "no" is better than a 30-second hang.
+
+---
+
 ## Cleanup
 
 ```bash
@@ -270,3 +339,5 @@ make down    # Delete cluster
 | CNPG pod CrashLoopBackOff | WAL corrupted — `kubectl delete cluster workshop-pg && kubectl delete pvc -l cnpg.io/cluster=workshop-pg` then `kubectl apply -f deploy/k8s/cnpg-cluster.yaml` |
 | CNPG pods stuck Pending | Need 3 nodes for anti-affinity — verify `kubectl get nodes` shows 3 nodes |
 | API returns 503 on /cases/pdb | Stale DB connection — `kubectl rollout restart deployment/api` |
+| Circuit breaker never opens | Verify `Threshold` is > 0 after the fix — `Threshold: 0` disables the breaker |
+| CB score seems low with fix | Expected — breaker correctly rejects requests which count as errors. The p95 improvement is the key metric |

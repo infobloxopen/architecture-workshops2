@@ -125,11 +125,42 @@ The goal is score 90+ with <5% error rate during fault injection.
 
 ---
 
+## Case 6: Circuit Breaker
+
+```
+I'm working on a Kubernetes workshop using CloudNativePG (CNPG) for PostgreSQL.
+The API has a /cases/circuitbreaker endpoint that writes to the CNPG database.
+When the primary pod is killed (simulating a failure), every request blocks on a
+30-second DB connection timeout, causing p95 latency to spike to 3+ seconds and
+blocking all concurrency slots.
+
+The project has a custom circuit breaker implementation in pkg/cases/breaker.go
+with three states: Closed (normal), Open (failing fast), HalfOpen (probing).
+
+Look at this file for LAB: STEP6 TODO markers:
+- pkg/cases/circuitbreaker_case.go (breaker disabled with Threshold=0)
+
+The breaker is created with Threshold: 0 and Timeout: 0, which disables it.
+Fix: set Threshold to 5 (open after 5 consecutive failures) and Timeout to
+5 * time.Second (probe for recovery after 5s).
+
+After changes:
+  make dev
+  go run ./cmd/driver run circuitbreaker
+
+The fix trades accuracy for responsiveness: error rate goes UP (breaker rejects
+fast) but p95 drops from ~3374ms to ~8ms and throughput is maintained.
+Target: score 70+ with p95 < 100ms.
+```
+
+---
+
 ## General Exploration
 
 ```
-I'm exploring a Go microservice workshop that teaches 5 resilience patterns:
-timeouts, DB transaction scope, bulkheads, autoscaling, and PDB/CNPG failover.
+I'm exploring a Go microservice workshop that teaches 6 resilience patterns:
+timeouts, DB transaction scope, bulkheads, autoscaling, PDB/CNPG failover,
+and circuit breakers.
 
 The project structure:
 - cmd/lab/main.go — Single binary (api|worker|dep modes)
